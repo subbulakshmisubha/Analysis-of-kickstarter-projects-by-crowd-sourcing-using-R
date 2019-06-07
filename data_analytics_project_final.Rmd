@@ -1,0 +1,639 @@
+---
+title: "Data analytics project"
+output:
+  
+  html_document: default
+  pdf_document: default
+  theme: cosmo
+  highlight: monochrome
+  toc: true
+  toc_float: false
+  toc_depth: 4
+  code_folding: hide
+---
+
+<style>
+body, h1 {
+    
+}
+
+body {
+    color: blue;
+}
+</style>
+  
+
+
+Team members: 
+
+
+1.Shramana Thakur(3169639)
+
+2.Megha Jayakumar(3155859)
+
+3.Rishi Tripathi(3169149)
+
+4.Subbulakshmi Sundaram(3157792)
+
+5.Srinivas Nandagudi Sridharamurthy(3166351)
+
+
+
+UNIVERSITY OF BONN SUMMER 2018 BATCH
+
+
+
+
+###                                                INTRODUCTION:
+<br>
+<br>
+<br>
+The kickstarter dataset contains the information of the startup projects which has been funded globally by crowdsourcing.The source of the dataset which is being used is https://www.kaggle.com/kemical/kickstarter-projects.
+
+
+
+
+
+```{r cars}
+#importing the dataset
+require(gridExtra)
+require(pacman)
+require(tidyverse)
+require(readxl)
+ex_rate_2018 = read_excel("C:/Users/SUBBULAKSHMI/Downloads/2018 Exchange Rate.xlsx")
+data2018<-read.csv("C:/Users/SUBBULAKSHMI/Downloads/ks_2018.csv")
+```
+
+```{r}
+#Description of the dataset
+str(data2018)
+```
+
+<br>
+<br>
+<br>
+
+
+##                                              DESCRIPTION OF DATASET:
+
+<br>
+<br>
+<br>
+
+1.internal kickstarter id (integer variable) 
+
+2.name: name of project - A project is a finite work with a clear goal that you'd like to bring to life. Think albums, books, or films.(Factor variable)
+
+3.category of the product (factor variable)
+
+4.main_category : category of campaign (factor variable)
+
+5.currency : currency used to support(factor variable)
+
+6.deadline : deadline for crowdfunding ( factor variable )
+
+7.goal: fundraising goal - The funding goal is the amount of money that a creator needs to complete their project(numeric variable)
+
+8.launched :date launched(factor variable)
+
+9.pledged : amount pledged by "crowd"(numeric variable)
+
+10.state : state pledged from(factor variable )
+
+11.backers : number of backers(integer variable)
+
+12.country : country pledged from(factor variable)
+
+13.usd pledged : amount of money pledged(numeric variable)
+
+
+<br>
+<br>
+<br>
+
+
+##                                         PREPROCESSING
+
+
+<br>
+<br>
+<br>
+
+```{r}
+dim(data2018)
+data2018<-na.omit(data2018)
+dim(data2018)
+```
+
+
+
+The dimension of dataset before omiting the empty and not applicable values is 378661 15
+The dimension of dataset after omiting the empty and not applicable values is 374864  15
+
+<br>
+<br>
+<br>
+
+```{r}
+#Make new columns to convert all currencies into USD
+convert_to_USD_2018 <- function(money,currency) {
+  if(currency == "USD") {
+    return(money)
+  }
+  else {
+    rate = ex_rate_2018 %>% filter(Code==currency) %>% select(USD_per_Unit)
+    return(as.numeric(money*rate))
+  }
+  
+}
+
+A = mapply(convert_to_USD_2018,data2018$goal,data2018$currency)
+B = mapply(convert_to_USD_2018,data2018$pledged,data2018$currency)
+
+data2018$usd_goal_Real = A
+data2018$usd_pledged_Real = B
+```
+
+<br>
+<br>
+<br>
+
+
+The above code adds two columns usd_goal_real and usd_pledged_real which specify the goal amount and pledged amount which is converted to US dollars from different currencies.
+
+<br>
+<br>
+<br>
+
+##                                   EXPLORATORY DATA ANALYSIS:
+
+
+
+<br>
+<br>
+<br>
+
+Exploratory data analysis is an approach for analysing different data sets to make a summary of their main 
+characteristics.
+
+
+```{r}
+#Create a lineplot for main category "Food" and showing the product launched in each month of the year 2014 to 2017.
+data2018$launched <- as.Date(data2018$launched ,"%m/%d/%Y")
+
+data2018 %>%
+  filter(main_category == 'Food') %>%
+  mutate(year_launched = as.numeric(format(launched, "%Y")), month_launched = as.numeric(format(launched, "%m"))) %>% 
+  filter(year_launched > 2013 & year_launched < 2018) %>%
+   group_by(year_launched,month_launched) %>% 
+   summarize(n=n())  %>% 
+   ggplot(aes(x=month_launched, y = n, color = year_launched)) + geom_line() + scale_x_continuous(breaks=1:12, labels =paste0(c("Jan","Feb","Mar","April","May", "Jun","July","Aug","Sept","Oct","Nov","Dec"))) + scale_y_continuous(breaks = seq(0,1800,300)) + facet_grid(year_launched ~ .)
+```
+
+<br>
+<br>
+<br>
+
+From the analysis of the line plot above we can see that in July 2014, the products launched were maximum. On the other hand in the year 2015 we can observe that the products released are more consistent through out the year. In the years 2016 - 2017 the release of the products were almost same, ranging from 300 to 600
+
+<br>
+<br>
+<br>
+
+
+
+```{r}
+#How many projects exceeded their funding goal by 50% or more?
+
+data2018 %>% filter(usd.pledged >= 1.5*usd_goal_real) %>% count
+```
+<br>
+<br>
+<br>
+
+
+It can be seen that 30876 are the projects are exceeding the funding goal of 50%.
+
+<br>
+<br>
+<br>
+
+```{r}
+## Create a plot of the amount pledged on different main categories
+histogram_main_categories<-data2018 %>% group_by(main_category)%>%summarise(Mean=mean(usd_pledged_Real))%>%arrange(-Mean)
+histogram_country<-data2018%>%group_by(country)%>%summarise(Mean=mean(usd_pledged_real))%>%arrange(-Mean)
+plot1<-histogram_main_categories %>%
+  ggplot(aes(x=main_category,y=Mean,fill=main_category)) + geom_bar(stat="identity")+ylim(0,30000)+theme(axis.text.x = element_text(angle = 90, hjust = 1))+xlab("Main category")+ylab("pledged amount")+ggtitle("amount of money pledged on different main categories")
+plot1
+```
+<br>
+<br>
+<br>
+
+The above is a bar plot which shows the amount of money in usd dollars pledged on different main categories and it can be seen that Design and Crafts are the main categories for which maximum and minimum amount has been pledged respectively .
+
+<br>
+<br>
+<br>
+```{r}
+## Create a plot of the amount pledged by different countries
+
+histogram_main_categories<-data2018 %>% group_by(main_category)%>%summarise(Mean=mean(usd_pledged_Real))%>%arrange(-Mean)
+histogram_country<-data2018%>%group_by(country)%>%summarise(Mean=mean(usd_pledged_real))%>%arrange(-Mean)
+
+
+
+
+plot2<-histogram_country %>%
+  ggplot(aes(x=country,y=Mean,fill=country)) +geom_bar(stat="identity")+scale_y_log10()+coord_polar()+theme_minimal()+ggtitle("amount of money pledged by different countries") +xlab("Country")+ylab("pledged amount")+
+  theme(
+    #axis.text = element_blank(),
+    #axis.title = element_blank(),
+    panel.grid = element_blank(),
+    plot.margin = unit(rep(0,4), "cm")     # This remove unnecessary margin around plot
+  ) 
+
+
+
+plot2
+
+```
+<br>
+<br>
+<br>
+
+
+The above is a cicular barplot which shows the amount of money in usd dollars pledged by different countries 
+and it can be seen that Hongkong,Netherlands and Australia are the countries which have pledged maximum amount of money and Mexico pledged the minimum amount.
+<br>
+<br>
+<br>
+```{r}
+#Display the names and category of those projects that has the string "Songs" in it.
+data2018 %>% select(name,category) %>% filter((str_detect(data2018$name, "Songs"))==TRUE)%>%head(10)
+```
+<br>
+<br>
+<br>
+
+
+The select statement is used to determine the data columns that has to be displayed in the output and 
+filter uses the str_detect function to detect the names that has the string "Songs"
+
+
+<br>
+<br>
+<br>
+```{r}
+#Create a plot of main category "Publishing" showing top 10 categories with respect to Average Goal and Average Pledge.
+
+p_load(ggrepel)
+data2018 %>% na.omit() %>% filter(main_category=="Publishing") %>% group_by(category) %>% summarise(Subgroup_count = n(),AvgGoal = mean(goal)) %>%arrange(-AvgGoal) %>%  head(100) %>%
+ggplot(aes(x=Subgroup_count, y=AvgGoal, label=category)) +
+geom_label_repel() + ylim(0,100000) + scale_x_continuous(expand = c(0.2,0.2))
+```
+<br>
+<br>
+<br>
+
+
+
+The data with the main_category = "Publishing" is filtered and grouped as per their sub category which has the column name "category". The number of sub groups and average goal is computed using the mean() function. The
+data is arranged in descending order of Average goal which is achieved using the arrange() function. For the 
+plot we have used the top 100 data of the ordered data. 
+
+
+The plot is between the Average pleadge and Average goal.
+
+geom_label_repel() is used for Text labels to repel away from each other, away from data points, and away from edges of the plotting area. This helps to give a clear picture of the plotted graph avoiding any overlapping of
+the points. ylim() methodis used to set the y axis scale.
+
+We can see from the plot that the number of sub categories has no effect in setting a goal value for a
+particular group.
+
+The warning we obtained is due to how ggplot2 deals with data that are outside the axis ranges of the plot. 
+
+
+<br>
+<br>
+<br>
+```{r}
+#Create a box plot against the number of projects pledged by US and non - US states against the Pledged real value
+
+data2018 %>% mutate(USorNonUS = str_detect(country,"US")) %>% head(100) %>%
+ggplot(aes(x=USorNonUS, y=usd_pledged_real)) +
+geom_boxplot() + ylim(0,5000)
+```
+<br>
+<br>
+<br> 
+ 
+ 
+ 
+Here we add a new column "USorNonUS" to our data using the mutate() function to determine which are the 
+projects from US. A box plot is plotted for the top 100 data fo the US and Non-Us countries against the usd_pleadged_real values. 
+
+The block labelled as False is depicting the Non-US countries and the one labelled as True is for the US. 
+From the plot we can infer that the amount pledged by the US is very high compared to the non-US countries 
+for the 1st 100 data of the data set. 
+
+The warning is obtained as some of the data are out of range of the scale specified in the plot. By altering
+this scale the plot becomes unclear and non readable.
+
+
+<br>
+<br>
+<br>
+```{r}
+#Show the different States of the main category "Food" along the years.
+data2018  %>% mutate( LaunchYear = format(as.Date(data2018$launched, format="%d/%m/%Y"),"%Y")) %>% filter(main_category == "Food")  %>% na.omit() %>% arrange(LaunchYear) %>% ggplot(aes(x=LaunchYear, fill=factor(state))) +
+geom_bar() + labs(fill="States") 
+```
+<br>
+<br>
+<br>
+
+
+
+
+For the above plot we have included a new column LaunchYear to the data which will have the year of the launched year. The bar plot is plotted against the launchYear and count of the projects in the main_category "Food". The different states are depicted using different colors in the plot which is done using the fill property.
+
+From the plot obtained we can infer that the highest number of projects are launched in the year 2014 and 2015
+with the failure rate higher than the success rate.
+
+
+<br>
+<br>
+<br>
+```{r}
+# Make a wordcloud plot of number of projects in each category
+library(wordcloud)
+wordcloud_data = data2018 %>% group_by(category) %>% summarise(n=n())
+wordcloud(words = sprintf("%s (%s)", wordcloud_data$category, wordcloud_data$n), freq = wordcloud_data$n, max.words = Inf, scale=c(1,.1), random.order=FALSE, rot.per=0.30, use.r.layout=FALSE,colors=brewer.pal(8, "Dark2"),family = "serif", font = 1)
+```
+<br>
+<br>
+<br>
+
+
+The above code snippet creates a word cloud of the different categories .It generates a png image of the world cloud thus formed
+
+
+
+
+
+<br>
+<br>
+<br>
+
+
+
+##                                      PREDICTIVE ANALYSIS
+
+
+<br>
+<br>
+<br>
+
+We would like to study how various factors affect the funding of a Kickstarter project. 
+The column "usd_pledged_real" depicts the Pledged money. However, simply predicting the value 
+of the Pledged money will not be of practical importance. Instead, we study the effect of a new
+mutated variable "Difference" that depicts the difference between the goal money and actual pledged 
+money. Thus, we study the effect of variables "Country (factor)", "Main category (factor)", 
+"No. of backers (integer)", "Goal money (numeric)", on the success/failure of goal money collection.
+
+
+<br>
+<br>
+<br>
+
+```{r}
+data2018 = data2018 %>% mutate(Difference = (as.numeric(usd_goal_Real) - as.numeric(usd.pledged)))
+```
+
+<br>
+<br>
+<br>
+
+The above code is to evaluate the difference between the real goal money in US dollars and the pledged 
+money in US dollars.
+
+
+<br>
+<br>
+<br>
+####1.Difference ~  Backers
+
+```{r}
+
+##Checking for outliers in "backers" and "Difference" column
+
+data2018 %>% group_by(cut(backers, breaks = 10)) %>% summarise(n=n())
+data2018 %>% group_by(cut(Difference, breaks = 20)) %>% summarise(n=n())
+
+
+```
+
+<br>
+<br>
+<br>
+
+We see that more than 3 lakh entries lie within a certain value. It is practical to leave out the outliers
+in further analysis  
+
+<br>
+<br>
+<br>
+```{r}
+dataFilteredBackers = data2018 %>% filter(Difference < 2.99e+06 & backers < 2.19e+04)
+ggplot(dataFilteredBackers, aes(y=Difference, x=backers)) +
+    geom_point(shape=1) +    
+    geom_smooth(method=lm, se=FALSE)
+
+```
+
+
+
+```{r}
+ModelDiffBackers = lm(formula = Difference ~ backers ,data = dataFilteredBackers)
+summary(ModelDiffBackers)
+
+```
+
+<br>
+<br>
+<br>
+
+
+
+From the plot we can see that with increasing number of backers, the Difference decreases. This conclusion 
+is logical, as with greater number of contributors, the chances of meeting the goal fund should increase. 
+
+The fitted linear model is as follows:
+Difference = 21671.05 - 50.33* backers
+
+There is a strong negative correlation between Difference and backers. The p-value is < 0.001, suggesting 
+that the model is highly significant. The Adjusted R-squared value however is  0.05972, suggesting the 
+model is unable to explain most of the variance in the data.
+
+
+
+<br>
+<br>
+<br>
+
+
+####2.	Difference ~  usd_goal_real
+<br>
+<br>
+<br>
+```{r}
+
+data2018 %>% group_by(cut(usd_goal_Real , breaks = 20)) %>% summarise(n=n())
+```
+
+<br>
+<br>
+<br>
+
+```{r}
+dataFilteredGoal = data2018 %>% filter(Difference < 2.99e+06 & usd_goal_Real < 6.62e+06)
+ggplot(dataFilteredGoal, aes(y=Difference, x=usd_goal_Real)) +
+    geom_point(shape=1) +    
+    geom_smooth(method=lm,  se=FALSE)
+
+```
+
+<br>
+<br>
+<br>
+
+```{r}
+ModelDiffGoal = lm(formula = Difference ~ usd_goal_Real ,data = dataFilteredGoal)
+summary(ModelDiffGoal)
+
+```
+
+<br>
+<br>
+<br>
+
+From the plot we can see that with a higher goal value for the project, the Difference increases. This 
+conclusion is understandable, as it should be more difficult to crowdfund large project expenses.
+
+The fitted linear model is as follows:
+Difference = -5.378e+03 + 0.9287* usd_goal_real
+
+There is a positive correlation between Difference and usd_goal_real. The p-value is < 0.001, suggesting 
+that the model is highly significant. The Adjusted R-squared value is 0.55, suggesting this model able 
+to better explain the variance in data than the previous one.
+
+<br>
+<br>
+<br>
+
+####3.Difference ~  usd_goal_real + backers
+
+<br>
+<br>
+<br>
+```{r}
+
+dataFilteredGoalBackers = data2018 %>% filter(Difference < 2.99e+06 & usd_goal_Real < 6.62e+06 & backers < 2.19e+04)
+ggplot(dataFilteredGoalBackers, aes(y=Difference, x=backers+usd_goal_Real)) + geom_point(shape=1) +   geom_smooth(method=lm,  se=FALSE)
+
+
+```
+
+<br>
+<br>
+<br>
+```{r}
+ModelDiffBackersGoal = lm(formula = Difference ~ backers + usd_goal_Real ,data = dataFilteredGoalBackers)
+summary(ModelDiffBackersGoal)
+
+```
+
+<br>
+<br>
+<br>
+
+
+The fitted linear model is as follows:
+Difference = -7.269e+01 -6.160e+01* backers + 9.844e-01* usd_goal_real
+
+The p-value is < 0.001, suggesting that the model is highly significant. The Adjusted R-squared value is 
+0.877, suggesting the model is able to explain the variance in the data very well.
+
+
+<br>
+<br>
+<br>
+
+####4.Difference ~  usd_goal_real + backers + country + main_category
+<br>
+<br>
+<br>
+Country and Main_category being factor variables, causes the linear regression to treat levels in these
+variables as a separate coefficient.
+<br>
+<br>
+<br>
+
+```{r}
+summary(lm(formula = Difference ~ backers + usd_goal_Real + country + main_category ,data = dataFilteredGoalBackers))
+```
+
+<br>
+<br>
+<br>
+
+The fitted linear model is as follows:
+Difference = 3.488e+02 - 6.172e+01* backers + 9.862e-01*usd_goal_real + 1.756e+03* countryAU 
++ 3.648e+02*countryBE +.. + 2.939e+03* main_categoryComics + 3.718e+02*main_categoryCrafts
+
+
+For each factor variable, the value can be either 0/1, reducing the entire linear model to be an equation 
+in "backers" and "usd_goal_real". The addition of these columns do not change the Adjusted R-squared 
+value, suggesting no value addition in the linear regression model upon their inclusion. 
+
+
+
+<br>
+<br>
+<br>
+
+
+
+
+
+##                                           CONCLUSION:
+
+<br>
+<br>
+<br>
+1. It can be seen that only about 8 percent of the projects have exceeded their funding  by more than 50 
+percent of the goal.
+
+2.After having observed multiple plot of different subcategories of main catogeries it could be observed 
+that the goal doesnt depend on the number of sub categories of a main category.For example we have plotted 
+for the main category "publishing".
+
+3.After having observed multiple categories ,taking for example the "food" category ,the failure rate is 
+higher than the success rate after launch of the projects and also that for the "food" category  in July 2014
+,the products launched were maximum compared to other months and also between the months of the years 
+2014-2017.
+
+4.It can be observed that the product design has the highest number of projects followed by documentary 
+and table top games.
+
+
+5.Upon studying the effects of different factors on the success/failure of generating the goal money 
+through linear regression models, we can say that failure increases linearly with the target goal amount 
+and decreases linearly with the number of backers. There was no apparent effect of the country and 
+category the project belonged to.
+
+<br>
+<br>
+<br>
+
